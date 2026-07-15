@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      GODOT_VERSION: 3.6-stable
+
+    steps:
+      - name: Instalar dependências
+        run: |
+          sudo apt update
+          sudo apt install -y wget unzip openjdk-17-jdk
+
+      - name: Clonar Player2
+        run: |
+          git clone https://github.com/Ezcha/player2-client.git project
+
+      - name: Baixar Godot Headless
+        run: |
+          wget https://downloads.tuxfamily.org/godotengine/3.6/Godot_v3.6-stable_linux_headless.64.zip
+          unzip Godot_v3.6-stable_linux_headless.64.zip
+          chmod +x Godot_v3.6-stable_linux_headless.64
+
+      - name: Baixar Export Templates
+        run: |
+          wget https://downloads.tuxfamily.org/godotengine/3.6/Godot_v3.6-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/templates/3.6.stable
+          unzip Godot_v3.6-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.6.stable
+
+      - name: Gerar keystore de debug
+        run: |
+          keytool -genkeypair \
+            -alias androiddebugkey \
+            -keystore debug.keystore \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+
+      - name: Exportar APK
+        working-directory: project
+        run: |
+          ../Godot_v3.6-stable_linux_headless.64 \
+            --headless \
+            --export-debug "Android" Player2.apk
+
+      - name: Enviar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Player2-0.0.1
+          path: project/Player2.apk

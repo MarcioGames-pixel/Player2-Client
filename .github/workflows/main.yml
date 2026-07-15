@@ -31,6 +31,7 @@ jobs:
         run: |
           git clone https://github.com/Ezcha/player2-client.git project
 
+
       - name: Baixar Godot 3.6
         run: |
           wget -O godot.zip \
@@ -38,6 +39,7 @@ jobs:
 
           unzip godot.zip
           chmod +x Godot_v3.6-stable_linux_headless.64
+
 
       - name: Instalar Export Templates
         run: |
@@ -49,9 +51,10 @@ jobs:
           unzip -o templates.tpz -d templates_temp
 
           cp -r templates_temp/templates/* \
-          ~/.local/share/godot/templates/3.6.stable
+          ~/.local/share/godot/templates/3.6.stable/
 
           find ~/.local/share/godot/templates -type f
+
 
       - name: Instalar Android SDK
         run: |
@@ -67,6 +70,7 @@ jobs:
           mv cmdline-tools/* \
           $ANDROID_SDK_ROOT/cmdline-tools/latest/
 
+
       - name: Instalar ferramentas Android
         run: |
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
@@ -77,6 +81,7 @@ jobs:
           "platform-tools" \
           "platforms;android-31" \
           "build-tools;31.0.0"
+
 
       - name: Criar Keystore
         run: |
@@ -91,9 +96,17 @@ jobs:
           -validity 10000 \
           -dname "CN=Android Debug,O=Android,C=US"
 
+
       - name: Copiar Keystore
         run: |
-          cp debug.keystore project/
+          cp debug.keystore project/debug.keystore
+
+
+      - name: Conferir Keystore
+        working-directory: project
+        run: |
+          ls -lh debug.keystore
+
 
       - name: Verificar projeto
         working-directory: project
@@ -103,6 +116,7 @@ jobs:
 
           echo "Arquivos nativos:"
           find native -type f || true
+
 
       - name: Criar export_presets.cfg
         working-directory: project
@@ -118,13 +132,14 @@ jobs:
           '' \
           '[preset.0.options]' \
           '' \
-          'keystore/debug="res://debug.keystore"' \
+          'keystore/debug="debug.keystore"' \
           'keystore/debug_user="androiddebugkey"' \
           'keystore/debug_password="android"' \
           'package/name="Player2"' \
           'package/unique_name="com.player2.client"' \
           'permissions/internet=true' \
           > export_presets.cfg
+
 
       - name: Exportar APK
         working-directory: project
@@ -138,9 +153,11 @@ jobs:
           --path . \
           --export-debug "Android" Player2.apk
 
+
       - name: Verificar APK
         run: |
           ls -lh project/Player2.apk
+
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

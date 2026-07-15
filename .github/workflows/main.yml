@@ -11,13 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GODOT_VERSION: 3.6-stable
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
 
     steps:
       - name: Instalar dependências
         run: |
           sudo apt update
-          sudo apt install -y wget unzip openjdk-17-jdk
+          sudo apt install -y \
+            wget \
+            unzip \
+            zip \
+            openjdk-17-jdk \
+            xvfb
 
       - name: Clonar Player2
         run: |
@@ -25,36 +31,128 @@ jobs:
 
       - name: Baixar Godot Headless
         run: |
-          wget https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_headless.64.zip
-          unzip Godot_v3.6-stable_linux_headless.64.zip
+          wget -O godot.zip \
+          https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_linux_headless.64.zip
+
+          unzip godot.zip
           chmod +x Godot_v3.6-stable_linux_headless.64
 
       - name: Baixar Export Templates
         run: |
-          wget https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_export_templates.tpz
-          mkdir -p ~/.local/share/godot/templates/3.6.stable
-          unzip Godot_v3.6-stable_export_templates.tpz -d ~/.local/share/godot/templates/3.6.stable
+          wget -O templates.tpz \
+          https://github.com/godotengine/godot/releases/download/3.6-stable/Godot_v3.6-stable_export_templates.tpz
 
-      - name: Gerar keystore de debug
+          mkdir -p ~/.local/share/godot/templates/3.6.stable
+          unzip templates.tpz -d ~/.local/share/godot/templates/3.6.stable
+
+      - name: Instalar Android SDK
         run: |
-          keytool -genkeypair \
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+
+          wget -O sdk.zip \
+          https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+
+          unzip sdk.zip
+
+          mv cmdline-tools \
+          $ANDROID_SDK_ROOT/cmdline-tools/latest
+
+      - name: Instalar Build Tools
+        run: |
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+          yes | sdkmanager --licenses
+
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+      - name: Gerar Debug Keystore
+        run: |
+          keytool \
+            -genkeypair \
             -alias androiddebugkey \
             -keystore debug.keystore \
             -storepass android \
             -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" \
             -keyalg RSA \
             -keysize 2048 \
-            -validity 10000
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Exportar APK
+      - name: Copiar Keystore
+        run: |
+          cp debug.keystore project/
+
+      - name: Verificar projeto
         working-directory: project
         run: |
+          ls -la
+          test -f project.godot
+       
+             - name: Criar export_presets.cfg
+        working-directory: project
+        run: |
+          cat > export_presets.cfg <<'EOF'
+          [preset.0]
+
+          name="Android"
+          platform="Android"
+          runnable=true
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="../Player2.apk"
+          script_export_mode=1
+          script_encryption_key=""
+
+          [preset.0.options]
+
+          custom_template/debug=""
+          custom_template/release=""
+          custom_build/use_custom_build=false
+          custom_build/export_format=0
+          custom_build/min_sdk=""
+          custom_build/target_sdk=""
+          plugins/AppLinks=false
+          architectures/armeabi-v7a=true
+          architectures/arm64-v8a=true
+          architectures/x86=true
+          architectures/x86_64=true
+          keystore/debug="res://debug.keystore"
+          keystore/debug_user="androiddebugkey"
+          keystore/debug_password="android"
+          keystore/release=""
+          keystore/release_user=""
+          keystore/release_password=""
+          version/code=1
+          version/name="0.0.1"
+          package/unique_name="com.player2.client"
+          package/name="Player2"
+          package/signed=true
+          screen/immersive_mode=true
+          permissions/internet=true
+          permissions/read_external_storage=true
+          permissions/write_external_storage=true
+          EOF
+          
+      - name: Exportar APK
+        working-directory: project
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+        run: |
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          xvfb-run -a \
           ../Godot_v3.6-stable_linux_headless.64 \
-            --headless \
+            --verbose \
+            --path . \
             --export-debug "Android" Player2.apk
 
-      - name: Enviar APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Player2-0.0.1

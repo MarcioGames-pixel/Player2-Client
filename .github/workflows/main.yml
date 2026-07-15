@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -90,8 +91,8 @@ jobs:
         run: |
           ls -la
           test -f project.godot
-       
-             - name: Criar export_presets.cfg
+
+      - name: Criar export_presets.cfg
         working-directory: project
         run: |
           cat > export_presets.cfg <<'EOF'
